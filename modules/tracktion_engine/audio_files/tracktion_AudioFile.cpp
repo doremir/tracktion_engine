@@ -161,6 +161,7 @@ AudioFileWriter::AudioFileWriter (const AudioFile& f,
         writer.reset (AudioFileUtils::createWriterFor (formatToUse, file.getFile(), sampleRate,
                                                        (unsigned int) numChannels, bitsPerSample,
                                                        metadata, quality));
+        writer->flush();  // ERIKs addon
     }
 }
 
