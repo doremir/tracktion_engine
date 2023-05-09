@@ -27,6 +27,12 @@ extern "C"
 #include "tracktion_engine.h"
 
 #include <string>
+#include <bitset>
+
+#ifdef __GNUC__
+ #pragma GCC diagnostic push
+ #pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
 
 #include "audio_files/formats/tracktion_FloatAudioFileFormat.cpp"
 #include "audio_files/formats/tracktion_RexFileFormat.cpp"
@@ -46,5 +52,9 @@ extern "C"
 #include "midi/tracktion_MidiProgramManager.cpp"
 #include "midi/tracktion_Musicality.cpp"
 #include "midi/tracktion_SelectedMidiEvents.cpp"
+
+#ifdef __GNUC__
+ #pragma GCC diagnostic pop
+#endif
 
 #endif
