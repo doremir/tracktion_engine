@@ -997,9 +997,15 @@ void TransportControl::timerCallback()
          && (! transportState->userDragging)
          && juce::Time::getMillisecondCounter() - transportState->lastUserDragTime > 200)
     {
-        const auto currentTime = playHeadWrapper->getLiveTransportPosition();
-        transportState->setVideoPosition (currentTime, false);
-        transportState->updatePositionFromPlayhead (currentTime);
+        // Only update if we're not looping or we're playing as otherwise the transport
+        // position will jump and be stuck at the loop in position.
+        // The other way to fix this mught be to change the play head to only snap the position on play start..
+        if (! looping || isPlaying())
+        {
+            const auto currentTime = playHeadWrapper->getLiveTransportPosition();
+            transportState->setVideoPosition (currentTime, false);
+            transportState->updatePositionFromPlayhead (currentTime);
+        }
     }
 
     // Periodically update the loop times from the transport state
@@ -1551,7 +1557,8 @@ void TransportControl::performPositionChange()
     }
     else
     {
-        newPos = juce::jlimit (TimePosition(), Edit::getMaximumEditEnd(), newPos);
+        const auto minStartTime = edit.tempoSequence.toTime (-BeatPosition::fromBeats (edit.getNumCountInBeats())) - 0.5s;
+        newPos = juce::jlimit (minStartTime, Edit::getMaximumEditEnd(), newPos);
     }
 
     if (playbackContext != nullptr)
