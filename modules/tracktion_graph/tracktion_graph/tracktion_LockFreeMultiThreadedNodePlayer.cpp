@@ -52,23 +52,19 @@ void LockFreeMultiThreadedNodePlayer::setNode (std::unique_ptr<Node> newNode, do
     // The prepare and set the new Node, passing in the old graph
     postNewGraph (prepareToPlay (std::move (newNode), lastGraphPosted,
                                  sampleRateToUse, blockSizeToUse,
-                                 lastAudioBufferPoolPosted));
+                                 useMemoryPool));
 }
 
 void LockFreeMultiThreadedNodePlayer::prepareToPlay (double sampleRateToUse, int blockSizeToUse)
 {
     std::unique_ptr<NodeGraph> currentGraph;
-    AudioBufferPool* currentAudioBufferPool = nullptr;
 
     // Ensure we've flushed any pending Node to the current prepared Node
     {
         const auto scopedAccess = preparedNodeObject.getScopedAccess();
 
         if (auto pn = scopedAccess.get())
-        {
             currentGraph = std::move (pn->graph);
-            currentAudioBufferPool = pn->audioBufferPool.get();
-        }
     }
     
     clearNode();
@@ -76,7 +72,7 @@ void LockFreeMultiThreadedNodePlayer::prepareToPlay (double sampleRateToUse, int
     // Don't pass in the old graph here as we're stealing the root from it
     postNewGraph (prepareToPlay (currentGraph != nullptr ? std::move (currentGraph->rootNode) : std::unique_ptr<Node>(), nullptr,
                                  sampleRateToUse, blockSizeToUse,
-                                 useMemoryPool ? currentAudioBufferPool : nullptr));
+                                 useMemoryPool));
 }
 
 int LockFreeMultiThreadedNodePlayer::process (const Node::ProcessContext& pc)
@@ -168,25 +164,25 @@ void LockFreeMultiThreadedNodePlayer::enablePooledMemoryAllocations (bool usePoo
 //==============================================================================
 std::unique_ptr<NodeGraph> LockFreeMultiThreadedNodePlayer::prepareToPlay (std::unique_ptr<Node> node, NodeGraph* oldGraph,
                                                                            double sampleRateToUse, int blockSizeToUse,
-                                                                           AudioBufferPool* pool)
+                                                                           bool useCurrentAudioBufferPool)
 {
     createThreads();
 
     sampleRate.store (sampleRateToUse, std::memory_order_release);
     blockSize = blockSizeToUse;
 
-    if (pool == nullptr)
+    if (! useCurrentAudioBufferPool)
         return node_player_utils::prepareToPlay (std::move (node), oldGraph, sampleRateToUse, blockSizeToUse);
 
     return node_player_utils::prepareToPlay (std::move (node), oldGraph, sampleRateToUse, blockSizeToUse,
-                                             [pool] (auto s) -> NodeBuffer
+                                             [this] (auto s) -> NodeBuffer
                                              {
-                                                auto data = pool->allocate (s);
+                                                auto data = lastAudioBufferPoolPosted->allocate (s);
                                                 return { data.getView().getFirstChannels (s.numChannels).getStart (s.numFrames), std::move (data) };
                                              },
-                                             [pool] (auto b)
+                                             [this] (auto b)
                                              {
-                                                 pool->release (std::move (b.data));
+                                                lastAudioBufferPoolPosted->release (std::move (b.data));
                                              });
 }
 
