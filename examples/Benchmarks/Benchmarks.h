@@ -51,7 +51,7 @@ inline bool publishToBenchmarkAPI (juce::String apiKey, std::vector<BenchmarkRes
         fields->setProperty ("benchmark_name",              juce::String (r.description.name).quoted ('\''));
         fields->setProperty ("benchmark_description",       juce::String (r.description.description).quoted ('\''));
         fields->setProperty ("benchmark_platform",          juce::String (r.description.platform).quoted ('\''));
-        fields->setProperty ("benchmark_time",              r.date.toISO8601 (true).trimCharactersAtEnd ("Z").quoted ('\''));
+        fields->setProperty ("benchmark_time",              r.date.toISO8601 (true).trimCharactersAtEnd ("Z").upToFirstOccurrenceOf ("+", false, false).quoted ('\''));
         fields->setProperty ("benchmark_duration",          r.totalSeconds);
         fields->setProperty ("benchmark_duration_min",      r.minSeconds);
         fields->setProperty ("benchmark_duration_max",      r.maxSeconds);
