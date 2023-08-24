@@ -14,4 +14,7 @@ project(tracktion
 add_subdirectory(modules/juce)
 add_subdirectory(modules)
 
-add_subdirectory(examples)
+option(TRACKTION_BUILD_EXAMPLES "Build example projects" ON)
+if (TRACKTION_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
