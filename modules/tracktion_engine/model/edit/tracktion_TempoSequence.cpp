@@ -597,11 +597,13 @@ void TempoSequence::updateTempoData()
 
 void TempoSequence::updateTempoDataIfNeeded() const
 {
+    // The check on isUpdatePending is to avoid triggering a message thread assert
+    // if this is called on a background thread when no update is needed
     if (tempos->isUpdatePending())
-        tempos->handleAsyncUpdate();
+        tempos->handleUpdateNowIfNeeded();
 
     if (timeSigs->isUpdatePending())
-        timeSigs->handleAsyncUpdate();
+        timeSigs->handleUpdateNowIfNeeded();
 }
 
 void TempoSequence::handleAsyncUpdate()

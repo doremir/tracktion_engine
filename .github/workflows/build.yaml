@@ -37,7 +37,7 @@ jobs:
             os: macos-latest
             generator: "-G Xcode"
             run_target: true
-            asan_cmake_args: "-- -enableAddressSanitizer YES"
+            asan_cmake_args: "-- -enableAddressSanitizer YES -enableUndefinedBehaviorSanitizer YES"
             tests_file_suffix: "_asan"
             schedule_only: true
           - name: macOS_asan
@@ -45,7 +45,7 @@ jobs:
             os: macos-latest
             generator: "-G Xcode"
             run_target: true
-            asan_cmake_args: "-- -enableAddressSanitizer YES"
+            asan_cmake_args: "-- -enableAddressSanitizer YES -enableUndefinedBehaviorSanitizer YES"
             tests_file_suffix: "_asan"
             schedule_only: true
           - name: macOS_analyse
@@ -131,6 +131,7 @@ jobs:
         shell: bash
         env:
           BM_API_KEY: ${{ matrix.publish_benchmark && secrets.BM_API_KEY || '' }}
+          BM_BRANCH_NAME: ${{ github.ref }}
         run: |
           ROOT=$(pwd)
           echo $ROOT
@@ -239,8 +240,6 @@ jobs:
         - name: "Run products"
           if: ${{ matrix.run_target && ! matrix.analyse }}
           shell: bash
-          env:
-            BM_API_KEY: ${{ matrix.publish_benchmark && secrets.BM_API_KEY || '' }}
           run: |
             ROOT=$(pwd)
             echo $ROOT

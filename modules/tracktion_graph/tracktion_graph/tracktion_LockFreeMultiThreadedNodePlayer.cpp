@@ -13,6 +13,8 @@
  #include <emmintrin.h>
 #endif
 
+#define RETURN_MID_NODES_OPTIMISATION 1
+
 namespace tracktion { inline namespace graph
 {
 
@@ -57,6 +59,9 @@ void LockFreeMultiThreadedNodePlayer::setNode (std::unique_ptr<Node> newNode, do
 
 void LockFreeMultiThreadedNodePlayer::prepareToPlay (double sampleRateToUse, int blockSizeToUse)
 {
+    if (sampleRateToUse == sampleRate && blockSizeToUse == blockSize)
+        return;
+
     std::unique_ptr<NodeGraph> currentGraph;
 
     // Ensure we've flushed any pending Node to the current prepared Node
@@ -263,6 +268,7 @@ void LockFreeMultiThreadedNodePlayer::buildNodesOutputLists (PreparedNode& prepa
 
         preparedNode.playbackNodes.push_back (std::make_unique<PlaybackNode> (*n));
         n->internal = preparedNode.playbackNodes.back().get();
+        n->numOutputNodes = 0;
     }
 
     // Iterate all nodes, for each input, add to the current Nodes output list
@@ -273,7 +279,7 @@ void LockFreeMultiThreadedNodePlayer::buildNodesOutputLists (PreparedNode& prepa
             // Check the input is actually still in the graph
             jassert (std::find (preparedNode.graph->orderedNodes.begin(), preparedNode.graph->orderedNodes.end(), inputNode) != preparedNode.graph->orderedNodes.end());
             static_cast<PlaybackNode*> (inputNode->internal)->outputs.push_back (node);
-            inputNode->numOutputNodes++;
+            ++inputNode->numOutputNodes;
         }
     }
 }
@@ -346,7 +352,10 @@ void LockFreeMultiThreadedNodePlayer::resetProcessQueue (PreparedNode& preparedN
 Node* LockFreeMultiThreadedNodePlayer::updateProcessQueueForNode (PreparedNode& preparedNode, Node& node)
 {
     auto playbackNode = static_cast<PlaybackNode*> (node.internal);
+
+   #if RETURN_MID_NODES_OPTIMISATION
     Node* nodeToReturn = nullptr;
+   #endif
 
     for (auto output : playbackNode->outputs)
     {
@@ -359,6 +368,7 @@ Node* LockFreeMultiThreadedNodePlayer::updateProcessQueueForNode (PreparedNode& 
             jassert (! outputPlaybackNode->hasBeenQueued);
             outputPlaybackNode->hasBeenQueued = true;
 
+           #if RETURN_MID_NODES_OPTIMISATION
             // We can return one Node to be processed on this thread, otherwise we can
             // queue it for another thread to possibly process
             if (nodeToReturn == nullptr)
@@ -370,10 +380,23 @@ Node* LockFreeMultiThreadedNodePlayer::updateProcessQueueForNode (PreparedNode& 
                 preparedNode.nodesReadyToBeProcessed->try_enqueue (&outputPlaybackNode->node);
                 numNodesQueued.fetch_add (1, std::memory_order_acq_rel);
             }
+           #else
+            // If there is only one Node or we're at the last Node we can return this to be processed by the same thread
+            if (playbackNode->outputs.size() == 1
+                || output == playbackNode->outputs.back())
+                return &outputPlaybackNode->node;
+
+            preparedNode.nodesReadyToBeProcessed->try_enqueue (&outputPlaybackNode->node);
+            numNodesQueued.fetch_add (1, std::memory_order_acq_rel);
+           #endif
         }
     }
 
+   #if RETURN_MID_NODES_OPTIMISATION
     return nodeToReturn;
+   #else
+    return nullptr;
+   #endif
 }
 
 //==============================================================================
