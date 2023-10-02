@@ -1005,19 +1005,33 @@ public:
         auto& channelSet = wi.getChannelSet();
         inputBuffer.setSize (channelSet.size(), numSamples);
 
-        for (const auto& ci : wi.getChannels())
+        juce::AudioDeviceManager& manager = edit.engine.getDeviceManager().deviceManager;
+
+        if (juce::AudioIODevice* audioInputDevice = manager.getCurrentAudioDevice())
         {
-            if (juce::isPositiveAndBelow (ci.indexInDevice, numChannels))
+            juce::BigInteger activeInputs = audioInputDevice->getActiveInputChannels();
+
+            std::map<int, int> indexToChannel;
+
+            // Map the device index to the order of the channels in the input buffer
+            int index = 0;
+            for (int i = 0; i < audioInputDevice->getInputChannelNames().size(); ++i)
             {
-                auto inputIndex = channelSet.getChannelIndexForType (ci.channel);
-                juce::FloatVectorOperations::copy (inputBuffer.getWritePointer (inputIndex),
-                                                   allChannels[ci.indexInDevice], numSamples);
+                if (activeInputs[i])
+                    indexToChannel[i] = index++;
             }
-            else
+
+            for (const auto& ci : wi.getChannels())
             {
-                jassertfalse; // Is an input device getting created with more channels than the total number of device channels?
+                if (activeInputs[ci.indexInDevice])
+                {
+                    auto inputIndex = channelSet.getChannelIndexForType (ci.channel);
+                    juce::FloatVectorOperations::copy (inputBuffer.getWritePointer (inputIndex),
+                                                        allChannels[indexToChannel[ci.indexInDevice]], numSamples);
+                }
             }
         }
+
     }
 
     void acceptInputBuffer (const float* const* allChannels, int numChannels, int numSamples,
